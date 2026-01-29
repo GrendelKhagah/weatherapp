@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- Default root level-->
+    <property name="ROOT_LEVEL" value="INFO"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{runId,-}] [%X{job,-}] %highlight(%-5level) %cyan(%logger{36}) - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Reduce noisy libraries to WARN -->
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+    <logger name="io.javalin" level="WARN"/>
+    <logger name="org.eclipse.jetty" level="WARN"/>
+
+    <logger name="org.eclipse.jetty.util" level="WARN"/>
+    <logger name="org.eclipse.jetty.server" level="WARN"/>
+
+    <root level="${ROOT_LEVEL}">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>

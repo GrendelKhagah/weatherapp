@@ -1,0 +1,369 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WeatherApp Map</title>
+
+  <!-- MapLibre GL JS (pinned) -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/maplibre-gl@5.13.0/dist/maplibre-gl.css"
+  />
+  <script src="https://unpkg.com/maplibre-gl@5.13.0/dist/maplibre-gl.js"></script>
+
+  <link rel="stylesheet" href="css/styles.css?v=2" />
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="brand">
+        <div class="brand-title">Ketterling <em>WeatherApp</em></div>
+        <div class="brand-sub">a NOAA and NWS data viewer</div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-title">API</div>
+        <div class="row">
+          <span class="muted">Base:</span>
+          <code id="apiBaseLabel"></code>
+        </div>
+        <div class="row">
+          <button id="btnHealth" class="btn">Health</button>
+          <button id="btnMetrics" class="btn">Metrics</button>
+        </div>
+        <pre id="apiStatus" class="pre"></pre>
+      </section>
+
+      <section class="panel weather-card">
+        <div class="panel-title">Weather Card</div>
+        <div class="row">
+          <span id="weatherMode" class="badge">View</span>
+          <button id="btnFollowView" class="btn btn-small" disabled>Follow View</button>
+        </div>
+        <div id="weatherLocation" class="muted">Move the map to load nearby weather.</div>
+        <div id="weatherLatLon" class="muted"></div>
+
+        <div class="subpanel">
+          <div class="subpanel-title">Live (NWS API)</div>
+          <div class="kv">
+            <div class="key">Temp</div><div id="weatherTemp">--</div>
+            <div class="key">Humidity</div><div id="weatherHumidity">--</div>
+            <div class="key">Wind</div><div id="weatherWind">--</div>
+            <div class="key">Precip %</div><div id="weatherPrecip">--</div>
+            <div class="key">Summary</div><div id="weatherSummary">--</div>
+          </div>
+        </div>
+
+        <div class="subpanel">
+          <div class="subpanel-title">Historic (nearest stations)</div>
+          <div class="kv">
+            <div class="key">Tmean</div><div id="weatherTmean">--</div>
+            <div class="key">Precip</div><div id="weatherPrcpWindow">--</div>
+          </div>
+        </div>
+
+        <div class="subpanel">
+          <div class="subpanel-title">Historic (nearest station, last 7 days)</div>
+          <div id="weatherHistoryStation" class="muted">--</div>
+          <div class="tableWrap">
+            <table id="weatherHistoryTable" class="weather-history-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>High</th>
+                  <th>Low</th>
+                  <th>Precip</th>
+                  <th>Tmean</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="subpanel">
+          <div class="subpanel-title">Nearest stations</div>
+          <div id="weatherStations" class="muted">--</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">Layers</div>
+
+        <label class="check">
+          <input type="checkbox" id="toggleGridpoints" checked />
+          <span>Gridpoints</span>
+        </label>
+
+        <label class="check">
+          <input type="checkbox" id="toggleStations" checked />
+          <span>Stations (nearest)</span>
+        </label>
+
+        <label class="check">
+          <input type="checkbox" id="toggleStationsAll" />
+          <span>Stations (all)</span>
+        </label>
+        <label class="check subcheck">
+          <input type="checkbox" id="toggleStationsAllWithData" checked />
+          <span>Only stations with data</span>
+        </label>
+
+        <label class="check">
+          <input type="checkbox" id="toggleAlerts" checked />
+          <span>Active Alerts</span>
+        </label>
+
+        <hr />
+
+        <label class="check">
+          <input type="checkbox" id="toggleTemp" />
+          <span>Temperature (NWS hourly)</span>
+        </label>
+
+        <div class="row">
+          <label class="muted">Time</label>
+          <input id="tempHourOffset" type="range" min="0" max="24" step="1" value="0" />
+          <span id="tempHourLabel" class="muted">Now</span>
+          <button id="btnTempLoad" class="btn">Load</button>
+        </div>
+
+        <hr />
+
+        <label class="check">
+          <input type="checkbox" id="togglePrecip" />
+          <span>Precip (sum)</span>
+        </label>
+
+        <div class="row">
+          <label class="muted">Range</label>
+          <select id="precipRange">
+            <option value="7d">7d</option>
+            <option value="30d" selected>30d</option>
+            <option value="90d">90d</option>
+            <option value="365d">365d</option>
+          </select>
+          <button id="btnPrecipLoad" class="btn">Load</button>
+        </div>
+      </section>
+
+      
+
+      <section class="panel">
+        <div class="panel-title">Selected</div>
+        <div class="row selected-header">
+          <span id="selectedKind" class="badge badge-muted">None</span>
+          <div id="selectedMeta" class="muted">Click a gridpoint.</div>
+        </div>
+        <div id="selectedNote" class="muted selected-note"></div>
+
+        <div class="subpanel">
+          <div class="subpanel-title">Hourly Forecast (NWS API)</div>
+          <div id="hourlyChart" class="hourly-chart"></div>
+          <div class="row hourly-actions">
+            <div id="hourlySummary" class="muted"></div>
+            <button id="btnHourlyToggle" class="btn btn-small">Show data</button>
+            <button id="btnHourlyCopy" class="btn btn-small" disabled>Copy data</button>
+            <button id="btnHourlyRefresh" class="btn btn-small">Refresh hourly</button>
+          </div>
+          <div id="hourlyTableWrap" class="tableWrap is-collapsed">
+            <table id="hourlyTable">
+              <thead>
+                <tr>
+                  <th>Start</th>
+                  <th>Temp C</th>
+                  <th>Precip %</th>
+                  <th>Wind m/s</th>
+                  <th>Summary</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="subpanel">
+          <div class="subpanel-title">Daily History</div>
+          <div class="row">
+            <label class="muted">Days</label>
+            <input id="historyDays" type="number" min="7" max="3650" value="365" />
+            <button id="btnHistoryReload" class="btn">Reload</button>
+          </div>
+          <div class="row hourly-actions">
+            <div id="historySummary" class="muted"></div>
+            <button id="btnHistoryToggle" class="btn btn-small">Show data</button>
+          </div>
+          <div class="history-chart-label muted">Last 12 months (daily min/max)</div>
+          <div id="historyChart" class="history-chart"></div>
+          <div id="historyTableWrap" class="tableWrap is-collapsed">
+            <table id="historyTable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Tmax</th>
+                  <th>Tmin</th>
+                  <th>Prcp mm</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="subpanel">
+          <div class="subpanel-title">ML Weather (Predicted)</div>
+          <div id="mlWeatherStatus" class="muted">No ML prediction yet.</div>
+          <div class="kv-3col">
+            <div class="key"></div><div class="header">Today</div><div class="header">Tomorrow</div>
+            <div class="key">Date</div><div id="mlWeatherTodayDate">--</div><div id="mlWeatherTomorrowDate">--</div>
+            <div class="key">Temp</div><div id="mlWeatherTodayTemp">--</div><div id="mlWeatherTomorrowTemp">--</div>
+            <div class="key">Precip</div><div id="mlWeatherTodayPrcp">--</div><div id="mlWeatherTomorrowPrcp">--</div>
+            <div class="key">Δ Temp</div><div id="mlWeatherTodayDelta">--</div><div id="mlWeatherTomorrowDelta">--</div>
+            <div class="key">Model</div><div id="mlWeatherTodayModel">--</div><div id="mlWeatherTomorrowModel">--</div>
+          </div>
+        </div>
+
+        <div class="subpanel">
+          <div class="subpanel-title">ML Forecast (10 days)</div>
+          <div id="mlForecastStatus" class="muted">No ML forecast yet.</div>
+          <div id="mlForecastChart" class="history-chart"></div>
+          <div class="row hourly-actions">
+            <button id="btnMlForecastToggle" class="btn btn-small">Show data</button>
+          </div>
+          <div id="mlForecastTableWrap" class="tableWrap is-collapsed">
+            <table id="mlForecastTable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Tmin</th>
+                  <th>Tmax</th>
+                  <th>Tmean</th>
+                  <th>Δ</th>
+                  <th>Precip</th>
+                  <th>NWS Tmin</th>
+                  <th>NWS Tmax</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="subpanel">
+          <div class="subpanel-title">ML Predictions (latest)</div>
+          <div id="mlStatus" class="muted">If ML tables exist, they'll show here.</div>
+          <div class="tableWrap">
+            <table id="mlTable">
+              <thead>
+                <tr>
+                  <th>Valid</th>
+                  <th>Hrs</th>
+                  <th>Risk</th>
+                  <th>Class</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">Saved Gridpoints</div>
+        <div class="row">
+          <input id="poiName" type="text" placeholder="Name" />
+          <input id="poiLat" type="number" step="0.0001" placeholder="Lat" />
+          <input id="poiLon" type="number" step="0.0001" placeholder="Lon" />
+        </div>
+        <div class="row">
+          <button id="btnPoiAdd" class="btn">Add</button>
+          <button id="btnPoiRefresh" class="btn">Refresh Gridpoints</button>
+          <button id="btnPoiMl" class="btn">Run ML</button>
+        </div>
+        <div id="poiList" class="poi-list muted">Loading...</div>
+      </section>
+
+      <section class="panel legend-panel">
+        <div class="panel-title">Legend</div>
+
+        <div class="legend-block">
+          <div class="legend-title">Station color (daily mean temp °C)</div>
+          <div class="legend-row">
+            <span class="legend-swatch temp-cold"></span><span>≤ -5</span>
+            <span class="legend-swatch temp-cool"></span><span>~10</span>
+            <span class="legend-swatch temp-mild"></span><span>~20</span>
+            <span class="legend-swatch temp-hot"></span><span>≥ 30</span>
+          </div>
+          <div class="legend-note muted">Stations are interpolated between breakpoints.</div>
+        </div>
+
+        <div class="legend-block">
+          <div class="legend-title">Map symbols</div>
+          <div class="legend-row">
+            <span class="legend-square"></span><span>Gridpoints</span>
+            <span class="legend-dot station"></span><span>Stations</span>
+          </div>
+          <div class="legend-row">
+            <span class="legend-diamond tracked"></span><span>Tracked points</span>
+            <span class="legend-diamond pinned"></span><span>Pinned location</span>
+          </div>
+          <div class="legend-row">
+            <span class="legend-area alert"></span><span>Active alerts (polygons)</span>
+          </div>
+          <div class="legend-note muted">Gridpoints and tracked points are saved locations; data comes from nearby stations or NWS for that location.</div>
+        </div>
+
+        <div class="legend-block">
+          <div class="legend-title">Heatmaps</div>
+          <div class="legend-row">
+            <span class="legend-bar temp"></span><span>Temperature intensity</span>
+          </div>
+          <div class="legend-row">
+            <span class="legend-bar precip"></span><span>Precip intensity</span>
+          </div>
+        </div>
+
+        <div class="legend-block">
+          <div class="legend-title">Selected badges</div>
+          <div class="legend-row">
+            <span class="badge badge--grid">Gridpoint</span>
+            <span class="badge badge--station">Station</span>
+            <span class="badge badge--pin">Pinned</span>
+            <span class="badge badge--tracked">Tracked</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="utilityPanel">
+        <div class="panel-title">Utility</div>
+        <div class="kv">
+          <div class="key">Stations</div><div id="utilStations">--</div>
+          <div class="key">Stations w/ data</div><div id="utilStationsWithData">--</div>
+          <div class="key">Gridpoints</div><div id="utilGridpoints">--</div>
+          <div class="key">Tracked points</div><div id="utilTrackedPoints">--</div>
+        </div>
+
+        <div class="subpanel">
+          <div class="subpanel-title">External API Health</div>
+          <div id="utilApiHealth" class="api-health muted">Loading...</div>
+        </div>
+      </section>
+
+      <div class="footer muted">
+        Tip: zoom/drag the map; layers load for the current viewport.
+      </div>
+    </aside>
+
+    <main id="mapWrap">
+      <div id="map"></div>
+      <div id="mapHud" class="hud muted"></div>
+    </main>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
+

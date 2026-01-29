@@ -1,0 +1,24 @@
+api.ketterling.space {
+  encode gzip
+
+  handle_path /ml/* {
+    reverse_proxy 127.0.0.1:8000
+  }
+
+  # Allowed API paths -> Java API
+  @apiAllowed path / /health /api/* /layers/*
+  handle @apiAllowed {
+    reverse_proxy localhost:8080
+  }
+
+  # Drop all other requests
+  handle {
+    respond "Not found" 404
+  }
+
+  header {
+    Strict-Transport-Security "max-age=31536000"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+  }
+}

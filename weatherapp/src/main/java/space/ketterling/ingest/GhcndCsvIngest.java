@@ -21,6 +21,13 @@ import java.util.Locale;
 public class GhcndCsvIngest {
     private static final Logger log = LoggerFactory.getLogger(GhcndCsvIngest.class);
 
+    /**
+     * CLI entry point to load a GHCN stations text file into the database.
+     *
+     * <p>
+     * Pass a file path as the first argument, or let it read the bundled resource.
+     * </p>
+     */
     public static void main(String[] args) throws Exception {
         String path = null;
         if (args.length > 0)

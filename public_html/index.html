@@ -1,4 +1,5 @@
 ﻿<!doctype html>
+<!-- WeatherApp main UI page -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -12,7 +13,7 @@
   />
   <script src="https://unpkg.com/maplibre-gl@5.13.0/dist/maplibre-gl.js"></script>
 
-  <link rel="stylesheet" href="css/styles.css?v=2" />
+  <link rel="stylesheet" href="css/styles.css?v=3" />
 </head>
 <body>
   <div id="app">
@@ -214,19 +215,55 @@
         <div class="subpanel">
           <div class="subpanel-title">ML Weather (Predicted)</div>
           <div id="mlWeatherStatus" class="muted">No ML prediction yet.</div>
-          <div class="kv-3col">
-            <div class="key"></div><div class="header">Today</div><div class="header">Tomorrow</div>
-            <div class="key">Date</div><div id="mlWeatherTodayDate">--</div><div id="mlWeatherTomorrowDate">--</div>
-            <div class="key">Temp</div><div id="mlWeatherTodayTemp">--</div><div id="mlWeatherTomorrowTemp">--</div>
-            <div class="key">Precip</div><div id="mlWeatherTodayPrcp">--</div><div id="mlWeatherTomorrowPrcp">--</div>
-            <div class="key">Δ Temp</div><div id="mlWeatherTodayDelta">--</div><div id="mlWeatherTomorrowDelta">--</div>
-            <div class="key">Model</div><div id="mlWeatherTodayModel">--</div><div id="mlWeatherTomorrowModel">--</div>
+          <div class="tableWrap ml-weather-wrap">
+            <table class="ml-weather-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Today</th>
+                  <th>Tomorrow</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th>Date</th>
+                  <td id="mlWeatherTodayDate">--</td>
+                  <td id="mlWeatherTomorrowDate">--</td>
+                </tr>
+                <tr>
+                  <th>Temp</th>
+                  <td id="mlWeatherTodayTemp">--</td>
+                  <td id="mlWeatherTomorrowTemp">--</td>
+                </tr>
+                <tr>
+                  <th>Precip</th>
+                  <td id="mlWeatherTodayPrcp">--</td>
+                  <td id="mlWeatherTomorrowPrcp">--</td>
+                </tr>
+                <tr>
+                  <th>Δ Temp</th>
+                  <td id="mlWeatherTodayDelta">--</td>
+                  <td id="mlWeatherTomorrowDelta">--</td>
+                </tr>
+                <tr>
+                  <th>Model</th>
+                  <td id="mlWeatherModel" colspan="2">--</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
         <div class="subpanel">
-          <div class="subpanel-title">ML Forecast (10 days)</div>
+          <div class="subpanel-title">ML Forecast (today + 10 days)</div>
           <div id="mlForecastStatus" class="muted">No ML forecast yet.</div>
+          <div class="row hourly-actions">
+            <label class="muted">Model</label>
+            <select id="mlForecastModel" class="select">
+              <option value="all">All models</option>
+            </select>
+          </div>
+          <div id="mlForecastLegend" class="ml-forecast-legend"></div>
           <div id="mlForecastChart" class="history-chart"></div>
           <div class="row hourly-actions">
             <button id="btnMlForecastToggle" class="btn btn-small">Show data</button>
@@ -251,16 +288,19 @@
         </div>
 
         <div class="subpanel">
-          <div class="subpanel-title">ML Predictions (latest)</div>
-          <div id="mlStatus" class="muted">If ML tables exist, they'll show here.</div>
+          <div class="subpanel-title">ML Forecast (daily details)</div>
+          <div id="mlStatus" class="muted">Daily ML forecast details will appear here.</div>
           <div class="tableWrap">
             <table id="mlTable">
               <thead>
                 <tr>
-                  <th>Valid</th>
-                  <th>Hrs</th>
-                  <th>Risk</th>
-                  <th>Class</th>
+                  <th>Date</th>
+                  <th>Tmin</th>
+                  <th>Tmax</th>
+                  <th>Tmean</th>
+                  <th>Precip</th>
+                  <th>Model</th>
+                  <th>Conf</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -363,6 +403,11 @@
 
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/modules/utils.js"></script>
+  <script src="js/modules/charts.js"></script>
+  <script src="js/modules/history.js"></script>
+  <script src="js/modules/ml.js"></script>
+  <script src="js/modules/ui.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

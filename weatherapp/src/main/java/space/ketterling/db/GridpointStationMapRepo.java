@@ -12,13 +12,22 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
+/**
+ * Database access for mapping gridpoints to nearby NOAA stations.
+ */
 public class GridpointStationMapRepo {
     private final HikariDataSource ds;
 
+    /**
+     * Creates a repo backed by the provided datasource.
+     */
     public GridpointStationMapRepo(HikariDataSource ds) {
         this.ds = ds;
     }
 
+    /**
+     * Inserts or updates a gridpoint-to-station mapping.
+     */
     public void upsertMap(String gridId, String stationId, Double distanceM, boolean isPrimary) throws Exception {
         String sql = "INSERT INTO gridpoint_station_map (grid_id, station_id, distance_m, is_primary) " +
                 "VALUES (?, ?, ?, ?) " +
@@ -37,6 +46,9 @@ public class GridpointStationMapRepo {
         }
     }
 
+    /**
+     * Clears the primary flag for all stations mapped to a gridpoint.
+     */
     public void clearPrimary(String gridId) throws Exception {
         String sql = "UPDATE gridpoint_station_map SET is_primary=false WHERE grid_id=?";
         try (Connection c = ds.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
@@ -45,6 +57,9 @@ public class GridpointStationMapRepo {
         }
     }
 
+    /**
+     * Gets the next closest station for a gridpoint, excluding one station ID.
+     */
     public String getAlternatePrimary(String gridId, String excludeStationId) throws Exception {
         String sql = "SELECT station_id FROM gridpoint_station_map WHERE grid_id = ? AND station_id <> ? ORDER BY distance_m NULLS LAST LIMIT 1";
         try (Connection c = ds.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {

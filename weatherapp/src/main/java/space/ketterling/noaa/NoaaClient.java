@@ -20,6 +20,14 @@ import java.net.http.*;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
+/**
+ * HTTP client for NOAA Climate Data Online (CDO) API.
+ *
+ * <p>
+ * Includes rate limiting and a simple circuit breaker to protect NOAA and
+ * our service from repeated failures.
+ * </p>
+ */
 public final class NoaaClient {
     // NOAA Climate Data Online (CDO) API v2
     private static final String BASE = "https://www.ncei.noaa.gov/cdo-web/api/v2";
@@ -32,6 +40,9 @@ public final class NoaaClient {
     private static volatile double tokensAvailable = 0.0;
     private static volatile long lastRefillTs = System.currentTimeMillis();
 
+    /**
+     * Creates a NOAA client using app config and a shared {@link ObjectMapper}.
+     */
     public NoaaClient(AppConfig cfg, ObjectMapper om) {
         this.cfg = cfg;
         this.om = om;
@@ -43,6 +54,9 @@ public final class NoaaClient {
 
     private static final Logger log = LoggerFactory.getLogger(NoaaClient.class);
 
+    /**
+     * Executes a GET request and parses the response as JSON with retries.
+     */
     private JsonNode getJson(String url) throws Exception {
         log.debug("NOAA API request -> {}", url);
         int maxAttempts = 3;
@@ -168,6 +182,9 @@ public final class NoaaClient {
     private static volatile boolean cbOpen = false;
     private static volatile long cbOpenUntil = 0L;
 
+    /**
+     * Returns true if the circuit breaker is currently open.
+     */
     private static boolean isCircuitOpen(long cbCoolDownMs) {
         long now = System.currentTimeMillis();
         if (cbOpen) {
@@ -183,6 +200,10 @@ public final class NoaaClient {
         return false;
     }
 
+    /**
+     * Records a failed request and opens the circuit if failures exceed the
+     * threshold.
+     */
     private static synchronized void recordFailure(int threshold, long windowMs, long coolDownMs) {
         long now = System.currentTimeMillis();
         if (cbFirstFailureTs == 0L || (now - cbFirstFailureTs) > windowMs) {
@@ -200,6 +221,9 @@ public final class NoaaClient {
         }
     }
 
+    /**
+     * Resets circuit breaker state after a successful request.
+     */
     private static synchronized void recordSuccess() {
         cbFailureCount = 0;
         cbFirstFailureTs = 0L;
@@ -213,6 +237,9 @@ public final class NoaaClient {
     /**
      * Station search using a small extent bbox around (lat,lon).
      * filter to dataset GHCND (Daily Summaries).
+     */
+    /**
+     * Finds nearby GHCND stations using a bounding box around a point.
      */
     public JsonNode stationsNear(double lat, double lon, double radiusKm, int limit) throws Exception {
         // Build an extent bbox around the point:
@@ -240,6 +267,9 @@ public final class NoaaClient {
      * Fetch GHCND daily data for a station.
      * datatypeids: TMAX,TMIN,PRCP (add more later if needed).
      */
+    /**
+     * Fetches daily GHCND data (TMAX/TMIN/PRCP) for a station and date range.
+     */
     public JsonNode dailyGhcnd(String stationId, String startDate, String endDate, int limit, int offset)
             throws Exception {
         String url = BASE + "/data"
@@ -255,6 +285,9 @@ public final class NoaaClient {
         return getJson(url);
     }
 
+    /**
+     * URL-encodes a string for safe query parameters.
+     */
     private String enc(String s) {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
     }

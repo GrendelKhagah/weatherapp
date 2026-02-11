@@ -23,10 +23,26 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
+/**
+ * Starts the WeatherApp server and background ingestion jobs.
+ * <p>
+ * This class is the main entry point. It wires up config, database connections,
+ * API routes, and scheduled data ingestion so the app can serve weather data.
+ */
 public final class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
+    /**
+     * Bootstraps the application and starts the API server.
+     *
+     * @param args command-line arguments (not used yet)
+     * @throws Exception if startup fails in a way we cannot recover from
+     */
     public static void main(String[] args) throws Exception {
         log.info("Starting application");
         AppConfig cfg = AppConfig.load();
@@ -90,59 +106,94 @@ public final class Main {
         log.info("API server started on port {}", cfg.apiPort());
 
         // Run initial refreshes on startup (so that data exists) after API launches
-        Thread startupIngest = new Thread(() -> {
+        ExecutorService gridpointExec = Executors.newSingleThreadExecutor(r -> new Thread(r, "startup-gridpoints"));
+        ExecutorService localHistoricExec = Executors
+                .newSingleThreadExecutor(r -> new Thread(r, "startup-local-historic"));
+        ExecutorService noaaExec = Executors.newSingleThreadExecutor(r -> new Thread(r, "startup-noaa"));
+
+        Future<?> gridpointFuture = gridpointExec.submit(() -> {
             try {
                 org.slf4j.MDC.put("job", "startup-gridpoints");
                 ingest.refreshGridpoints();
+            } catch (Exception e) {
+                log.error("Startup gridpoint refresh failed", e);
+            } finally {
                 org.slf4j.MDC.remove("job");
+            }
+        });
 
+        Future<?> localHistoricFuture = localHistoricExec.submit(() -> {
+            try {
                 // If local station historic CSVs exist, ingest any new local data first
                 Path stationDir = Path.of(cfg.stationHistoricDir());
                 if (!Files.exists(stationDir))
                     stationDir = Path.of("/opt/weather-app/data/stationHistoricData");
                 if (Files.exists(stationDir)) {
-                    try {
-                        org.slf4j.MDC.put("job", "startup-local-historic");
-                        log.info("Local stationHistoricData directory found, checking for new CSVs");
-                        int processed = space.ketterling.ingest.StationHistoricCsvIngest.ingestIfNeeded(stationDir,
-                                ingestDs,
-                                cfg);
-                        int tarRows = space.ketterling.ingest.StationHistoricCsvIngest
-                                .ingestDailySummariesTarGzIfPresent(stationDir, ingestDs, cfg);
-                        log.info("Local historic ingest processed {} files, tarRows={}", processed, tarRows);
-                    } catch (Exception e) {
-                        log.error("Error ingesting local station historic CSVs", e);
-                    } finally {
-                        org.slf4j.MDC.remove("job");
-                    }
-                }
-
-                // Initial hourly forecast ingest from noaa if the api is enabled in cfg
-                if (cfg.noaaApiEnabled() && noaaIngest != null) {
-                    org.slf4j.MDC.put("job", "startup-noaa-mapping");
-                    noaaIngest.refreshStationsAndMapping();
-                    org.slf4j.MDC.remove("job");
-                }
-
-                // Continue with NOAA API backfill for any remaining history
-                if (cfg.noaaApiEnabled() && noaaIngest != null) {
-                    org.slf4j.MDC.put("job", "startup-noaa-daily");
-                    noaaIngest.ingestDailyHistory();
-                    org.slf4j.MDC.remove("job");
+                    org.slf4j.MDC.put("job", "startup-local-historic");
+                    log.info("Local stationHistoricData directory found, checking for new CSVs");
+                    int processed = space.ketterling.ingest.StationHistoricCsvIngest.ingestIfNeeded(stationDir,
+                            ingestDs,
+                            cfg);
+                    int tarRows = space.ketterling.ingest.StationHistoricCsvIngest
+                            .ingestDailySummariesTarGzIfPresent(stationDir, ingestDs, cfg);
+                    log.info("Local historic ingest processed {} files, tarRows={}", processed, tarRows);
                 }
             } catch (Exception e) {
-                log.error("Startup ingest failed", e);
+                log.error("Error ingesting local station historic CSVs", e);
+            } finally {
                 org.slf4j.MDC.remove("job");
             }
-        }, "startup-ingest");
-        startupIngest.setDaemon(true);
-        startupIngest.start();
+        });
+
+        Future<?> noaaFuture = noaaExec.submit(() -> {
+            if (!cfg.noaaApiEnabled() || noaaIngest == null) {
+                return;
+            }
+            try {
+                // Ensure gridpoints are refreshed before NOAA mapping/history
+                try {
+                    gridpointFuture.get(10, TimeUnit.MINUTES);
+                } catch (Exception e) {
+                    log.warn("Gridpoint refresh not completed before NOAA startup; proceeding", e);
+                }
+
+                org.slf4j.MDC.put("job", "startup-noaa-mapping");
+                noaaIngest.refreshStationsAndMapping();
+                org.slf4j.MDC.remove("job");
+
+                org.slf4j.MDC.put("job", "startup-noaa-daily");
+                noaaIngest.ingestDailyHistory();
+                org.slf4j.MDC.remove("job");
+            } catch (Exception e) {
+                log.error("Startup NOAA ingest failed", e);
+                org.slf4j.MDC.remove("job");
+            }
+        });
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
                 log.info("Shutting down...");
                 api.stop();
                 scheduler.stop();
+                if (gridpointFuture != null) {
+                    gridpointFuture.cancel(true);
+                }
+                if (localHistoricFuture != null) {
+                    localHistoricFuture.cancel(true);
+                }
+                if (noaaFuture != null) {
+                    noaaFuture.cancel(true);
+                }
+
+                gridpointExec.shutdownNow();
+                localHistoricExec.shutdownNow();
+                noaaExec.shutdownNow();
+                try {
+                    gridpointExec.awaitTermination(3, TimeUnit.SECONDS);
+                    localHistoricExec.awaitTermination(3, TimeUnit.SECONDS);
+                    noaaExec.awaitTermination(3, TimeUnit.SECONDS);
+                } catch (InterruptedException ignored) {
+                }
                 apiDs.close();
                 ingestDs.close();
             } catch (Exception e) {

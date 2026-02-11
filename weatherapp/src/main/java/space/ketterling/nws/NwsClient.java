@@ -11,6 +11,13 @@ import java.net.http.*;
 import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * HTTP client for National Weather Service (api.weather.gov) endpoints.
+ *
+ * <p>
+ * Includes simple in-memory caching for points, alerts, and forecasts.
+ * </p>
+ */
 public final class NwsClient {
     private final HttpClient http;
     private final AppConfig cfg;
@@ -25,6 +32,9 @@ public final class NwsClient {
 
     private static final ConcurrentHashMap<String, CacheEntry> CACHE = new ConcurrentHashMap<>();
 
+    /**
+     * Creates a new NWS client using app config and a shared {@link ObjectMapper}.
+     */
     public NwsClient(AppConfig cfg, ObjectMapper om) {
         this.cfg = cfg;
         this.om = om;
@@ -34,6 +44,9 @@ public final class NwsClient {
                 .build();
     }
 
+    /**
+     * Performs a GET request, caches selected responses, and parses JSON.
+     */
     public JsonNode getJson(String url) throws Exception {
         long ttlMs = cacheTtlForUrl(url);
         if (ttlMs > 0) {
@@ -65,19 +78,31 @@ public final class NwsClient {
         return json;
     }
 
+    /**
+     * Loads NWS point metadata for a latitude/longitude pair.
+     */
     public JsonNode points(double lat, double lon) throws Exception {
         return getJson("https://api.weather.gov/points/" + lat + "," + lon);
     }
 
+    /**
+     * Loads hourly forecast JSON from a provided NWS URL.
+     */
     public JsonNode forecastHourly(String forecastHourlyUrl) throws Exception {
         return getJson(forecastHourlyUrl);
     }
 
     // Simple + reliable approach: query alerts for each tracked point
+    /**
+     * Fetches active alerts for a point using the NWS alerts endpoint.
+     */
     public JsonNode activeAlertsForPoint(double lat, double lon) throws Exception {
         return getJson("https://api.weather.gov/alerts/active?point=" + lat + "," + lon);
     }
 
+    /**
+     * Chooses a cache TTL based on URL type (alerts, forecast, points).
+     */
     private static long cacheTtlForUrl(String url) {
         if (url == null)
             return 0L;
@@ -91,6 +116,9 @@ public final class NwsClient {
         return 0L;
     }
 
+    /**
+     * Simple cache entry for a JSON response.
+     */
     private static final class CacheEntry {
         final long expiresAtMs;
         final JsonNode body;

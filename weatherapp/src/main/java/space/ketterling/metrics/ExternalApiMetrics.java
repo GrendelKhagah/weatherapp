@@ -3,13 +3,26 @@ package space.ketterling.metrics;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Tracks success/failure counts for external API calls (NWS, NOAA, etc.).
+ *
+ * <p>
+ * Uses a rolling 60-minute window to compute basic health status.
+ * </p>
+ */
 public final class ExternalApiMetrics {
     private static final int WINDOW_MINUTES = 60;
     private static final Map<String, ServiceBuckets> SERVICES = new ConcurrentHashMap<>();
 
+    /**
+     * Utility class; no instances.
+     */
     private ExternalApiMetrics() {
     }
 
+    /**
+     * Records one call outcome for a named external service.
+     */
     public static void record(String service, boolean success) {
         if (service == null || service.isBlank())
             return;
@@ -17,6 +30,9 @@ public final class ExternalApiMetrics {
         buckets.record(success);
     }
 
+    /**
+     * Returns a snapshot of call counts and failure rates by service.
+     */
     public static Map<String, ServiceSnapshot> snapshot() {
         Map<String, ServiceSnapshot> out = new ConcurrentHashMap<>();
         for (var e : SERVICES.entrySet()) {
@@ -25,10 +41,16 @@ public final class ExternalApiMetrics {
         return out;
     }
 
+    /**
+     * Returns the rolling window size (minutes) used for metrics.
+     */
     public static int windowMinutes() {
         return WINDOW_MINUTES;
     }
 
+    /**
+     * Summary metrics for a single external service.
+     */
     public static final class ServiceSnapshot {
         public final long callsLastHour;
         public final long failuresLastHour;
@@ -43,11 +65,17 @@ public final class ExternalApiMetrics {
         }
     }
 
+    /**
+     * Ring buffer of per-minute counts for a service.
+     */
     private static final class ServiceBuckets {
         private final long[] total = new long[WINDOW_MINUTES];
         private final long[] fail = new long[WINDOW_MINUTES];
         private final long[] minute = new long[WINDOW_MINUTES];
 
+        /**
+         * Records success/failure in the current minute bucket.
+         */
         private synchronized void record(boolean success) {
             long nowMin = System.currentTimeMillis() / 60000L;
             int idx = (int) (nowMin % WINDOW_MINUTES);
@@ -62,6 +90,9 @@ public final class ExternalApiMetrics {
             }
         }
 
+        /**
+         * Builds a snapshot by summing buckets from the last hour.
+         */
         private synchronized ServiceSnapshot snapshot() {
             long nowMin = System.currentTimeMillis() / 60000L;
             long totalSum = 0L;

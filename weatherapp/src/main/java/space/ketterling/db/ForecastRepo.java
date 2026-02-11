@@ -7,14 +7,23 @@ import java.sql.PreparedStatement;
 import java.sql.Timestamp;
 import java.time.Instant;
 
+/**
+ * Database access for hourly forecast rows.
+ */
 public class ForecastRepo {
     private final HikariDataSource ds;
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ForecastRepo.class);
 
+    /**
+     * Creates a repo backed by the provided datasource.
+     */
     public ForecastRepo(HikariDataSource ds) {
         this.ds = ds;
     }
 
+    /**
+     * Inserts or updates a single hourly forecast row.
+     */
     public void upsertHourly(
             String gridId,
             Instant startTime,
@@ -68,6 +77,9 @@ public class ForecastRepo {
         log.debug("upsertHourly: gridId={} start={} end={}", gridId, startTime, endTime);
     }
 
+    /**
+     * Writes a nullable double to a prepared statement.
+     */
     private void setDouble(PreparedStatement ps, int idx, Double v) throws Exception {
         if (v == null)
             ps.setNull(idx, java.sql.Types.DOUBLE);

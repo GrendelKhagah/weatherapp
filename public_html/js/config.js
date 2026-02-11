@@ -1,4 +1,5 @@
-﻿// Update this to your backend (prefer HTTPS to avoid mixed-content issues)
+﻿// Global frontend configuration for WeatherApp.
+// Update this to your backend (prefer HTTPS to avoid mixed-content issues)
 window.CONFIG = {
   API_BASE: "https://api.ketterling.space",
 

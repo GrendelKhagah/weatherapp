@@ -7,10 +7,16 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.LocalDate;
 
+/**
+ * Builds and stores cached grid-level aggregates for faster API responses.
+ */
 public class CachedGridAggRepo {
     private final HikariDataSource ds;
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CachedGridAggRepo.class);
 
+    /**
+     * Creates a repo backed by the provided datasource.
+     */
     public CachedGridAggRepo(HikariDataSource ds) {
         this.ds = ds;
     }
@@ -97,6 +103,9 @@ public class CachedGridAggRepo {
         log.info("cached_grid_agg upsert completed for as_of={} window={}d", asOf, prcpWindowDays);
     }
 
+    /**
+     * Creates the cached_grid_agg table and supporting index if missing.
+     */
     private void createCachedGridAggTable() throws Exception {
         String ddl = "CREATE TABLE IF NOT EXISTS cached_grid_agg (" +
                 "grid_id TEXT PRIMARY KEY REFERENCES geo_gridpoint(grid_id) ON DELETE CASCADE, " +

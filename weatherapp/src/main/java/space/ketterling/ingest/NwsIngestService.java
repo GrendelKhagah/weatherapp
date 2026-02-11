@@ -20,6 +20,9 @@ import space.ketterling.db.IngestLogRepo;
 import space.ketterling.db.TrackedPointRepo;
 import space.ketterling.nws.NwsClient;
 
+/**
+ * Handles ingesting NWS data into the database (gridpoints, hourly, alerts).
+ */
 public class NwsIngestService {
     private static final Logger log = LoggerFactory.getLogger(NwsIngestService.class);
 
@@ -32,6 +35,9 @@ public class NwsIngestService {
     private final AlertRepo alertRepo;
     private final TrackedPointRepo trackedPointRepo;
 
+    /**
+     * Builds the ingest service with required repos and HTTP client.
+     */
     public NwsIngestService(AppConfig cfg,
             ObjectMapper om,
             NwsClient nws,
@@ -50,6 +56,9 @@ public class NwsIngestService {
         this.trackedPointRepo = trackedPointRepo;
     }
 
+    /**
+     * Collects unique tracked points from config and the database.
+     */
     private List<double[]> getTrackedPoints() {
         List<double[]> out = new java.util.ArrayList<>();
         java.util.Set<String> seen = new java.util.HashSet<>();
@@ -80,6 +89,9 @@ public class NwsIngestService {
     // -------------------------
     // JOB 1: Refresh gridpoints
     // -------------------------
+    /**
+     * Pulls fresh gridpoint data from NWS for each tracked point.
+     */
     public void refreshGridpoints() throws Exception {
         List<double[]> tracked = getTrackedPoints();
         log.info("Starting job: refreshGridpoints (tracked points={})", tracked.size());
@@ -137,6 +149,9 @@ public class NwsIngestService {
     // -------------------------
     // JOB 2: Hourly forecasts
     // -------------------------
+    /**
+     * Downloads hourly forecasts from NWS and writes them to the DB.
+     */
     public void ingestHourlyForecasts() throws Exception {
         log.info("Starting job: ingestHourlyForecasts");
         UUID runId = logRepo.startRun("nws_hourly_forecast");
@@ -219,6 +234,9 @@ public class NwsIngestService {
     // -------------------------
     // JOB 3: Alerts (per each tracked point)
     // -------------------------
+    /**
+     * Loads active alerts for tracked points and stores them.
+     */
     public void ingestAlerts() throws Exception {
         List<double[]> tracked = getTrackedPoints();
         log.info("Starting job: ingestAlerts (tracked points={})", tracked.size());
@@ -304,6 +322,9 @@ public class NwsIngestService {
     // -------------------------
     // Helpers
     // -------------------------
+    /**
+     * Parses an ISO-8601 timestamp string to an Instant.
+     */
     private Instant parseInstant(String s) {
         if (s == null || s.isBlank())
             return null;
@@ -316,6 +337,9 @@ public class NwsIngestService {
 
     // NWS hourly period temperature is usually numeric in "temperature" with
     // "temperatureUnit"
+    /**
+     * Converts an NWS temperature node to Celsius.
+     */
     private Double toCelsius(JsonNode period) {
         if (period == null || period.isMissingNode())
             return null;
@@ -331,6 +355,9 @@ public class NwsIngestService {
         return (t - 32.0) * (5.0 / 9.0);
     }
 
+    /**
+     * Parses wind speed text and converts to meters per second.
+     */
     private Double parseWindSpeedMps(String windText) {
         // examples: "5 mph", "10 to 15 mph", "15 kt"
         if (windText == null || windText.isBlank())
@@ -357,6 +384,9 @@ public class NwsIngestService {
         return first * 0.44704;
     }
 
+    /**
+     * Reads a probability node and converts it to 0..1.
+     */
     private Double parsePrecipProb01(JsonNode probNode) {
         if (probNode == null || probNode.isMissingNode())
             return null;
@@ -367,6 +397,9 @@ public class NwsIngestService {
         return percent / 100.0;
     }
 
+    /**
+     * Reads a numeric "value" field from a JSON node.
+     */
     private Double parseValueNode(JsonNode node) {
         if (node == null || node.isMissingNode())
             return null;
@@ -376,6 +409,9 @@ public class NwsIngestService {
         return v.asDouble();
     }
 
+    /**
+     * Converts a compass direction (N, NE, E, etc.) to degrees.
+     */
     private Double cardinalToDegrees(String dir) {
         if (dir == null || dir.isBlank())
             return null;

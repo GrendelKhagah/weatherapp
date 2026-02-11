@@ -4,6 +4,14 @@ import java.io.InputStream;
 import java.time.*;
 import java.util.*;
 
+/**
+ * Application configuration loaded from environment variables or properties.
+ *
+ * <p>
+ * This record groups all runtime settings for the API, database, NOAA/NWS,
+ * ingest schedules, and ML service.
+ * </p>
+ */
 public record AppConfig(
         // API / DB / NWS
         int apiPort,
@@ -45,6 +53,10 @@ public record AppConfig(
         // Local ingest state file for station-historic CSV ingest
         String stationHistoricStateFile) {
 
+    /**
+     * Loads configuration using environment variables, system properties, and
+     * application.properties (in that order).
+     */
     public static AppConfig load() {
         Properties p = new Properties();
         try (InputStream in = AppConfig.class.getClassLoader().getResourceAsStream("application.properties")) {
@@ -148,6 +160,9 @@ public record AppConfig(
     // ----------------------------
     // helpers
     // ----------------------------
+    /**
+     * Reads a value from env, then JVM property, then properties file fallback.
+     */
     private static String envOr(Properties p, String envKey, String propKey, String def) {
         String v = System.getenv(envKey);
         if (v != null && !v.isBlank())
@@ -159,6 +174,9 @@ public record AppConfig(
         return p.getProperty(propKey, def);
     }
 
+    /**
+     * Ensures a required config value is present and not blank.
+     */
     private static String requireNonBlank(String v) {
         if (v == null || v.isBlank()) {
             throw new IllegalStateException(
@@ -167,6 +185,9 @@ public record AppConfig(
         return v;
     }
 
+    /**
+     * Parses tracked points in the format "lat,lon|lat,lon".
+     */
     private static List<double[]> parsePoints(String s) {
         if (s == null || s.isBlank())
             return List.of();

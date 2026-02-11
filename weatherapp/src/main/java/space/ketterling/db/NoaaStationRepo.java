@@ -12,14 +12,23 @@ import com.zaxxer.hikari.HikariDataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 
+/**
+ * Database access for NOAA station metadata.
+ */
 public class NoaaStationRepo {
     private final HikariDataSource ds;
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(NoaaStationRepo.class);
 
+    /**
+     * Creates a repo backed by the provided datasource.
+     */
     public NoaaStationRepo(HikariDataSource ds) {
         this.ds = ds;
     }
 
+    /**
+     * Inserts or updates a NOAA station row.
+     */
     public void upsertStation(String stationId, String name, Double lat, Double lon, Double elevationM,
             String metadataJson) throws Exception {
         String sql = "INSERT INTO noaa_station (station_id, name, geom, elevation_m, metadata) " +

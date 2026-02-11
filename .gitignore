@@ -1,0 +1,15 @@
+# secrets (have been cleaned)
+#.env
+#*.env
+
+# Java/Maven build output
+**/target/
+*.class
+
+# Python
+__pycache__/
+*.pyc
+
+# OS/editor
+.DS_Store
+.vscode/

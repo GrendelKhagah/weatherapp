@@ -8,14 +8,23 @@ import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Database access for NWS gridpoints and related lookups.
+ */
 public class GridpointRepo {
   private final HikariDataSource ds;
   private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GridpointRepo.class);
 
+  /**
+   * Creates a repo backed by the provided datasource.
+   */
   public GridpointRepo(HikariDataSource ds) {
     this.ds = ds;
   }
 
+  /**
+   * Inserts or updates a gridpoint row and its forecast URLs.
+   */
   public void upsertGridpoint(String gridId, String office, int gridX, int gridY,
       double lat, double lon,
       String gridDataUrl, String hourlyUrl) throws Exception {
@@ -42,6 +51,9 @@ public class GridpointRepo {
     log.debug("upsertGridpoint: {} office={} urls=[{},{}]", gridId, office, gridDataUrl, hourlyUrl);
   }
 
+  /**
+   * Lists gridpoints that have hourly forecast URLs.
+   */
   public List<GridpointRow> listGridpointsForHourly() throws Exception {
     String sql = "SELECT grid_id, forecast_hourly_url FROM geo_gridpoint WHERE forecast_hourly_url IS NOT NULL ORDER BY grid_id";
     List<GridpointRow> out = new ArrayList<>();
@@ -55,10 +67,16 @@ public class GridpointRepo {
     return out;
   }
 
+  /**
+   * Minimal gridpoint row used for hourly forecast ingest.
+   */
   public record GridpointRow(String gridId, String forecastHourlyUrl) {
 
   }
 
+  /**
+   * Lists gridpoints with stored latitude/longitude values.
+   */
   public List<GridpointLatLonRow> listGridpointsWithLatLon() throws Exception {
     String sql = "SELECT grid_id, ST_Y(geom) AS lat, ST_X(geom) AS lon FROM geo_gridpoint WHERE geom IS NOT NULL";
     List<GridpointLatLonRow> out = new ArrayList<>();
@@ -72,6 +90,9 @@ public class GridpointRepo {
     return out;
   }
 
+  /**
+   * Returns station IDs marked as primary in the gridpoint mapping table.
+   */
   public List<String> listPrimaryStations() throws Exception {
     String sql = "SELECT DISTINCT station_id FROM gridpoint_station_map WHERE is_primary=true";
     List<String> out = new ArrayList<>();
@@ -84,6 +105,9 @@ public class GridpointRepo {
     return out;
   }
 
+  /**
+   * Finds gridpoints that map to a given station ID.
+   */
   public List<String> getGridpointIdsForStation(String stationId) throws Exception {
     String sql = "SELECT grid_id FROM gridpoint_station_map WHERE station_id = ?";
     List<String> out = new ArrayList<>();
@@ -97,9 +121,15 @@ public class GridpointRepo {
     return out;
   }
 
+  /**
+   * Lightweight row containing grid ID and coordinates.
+   */
   public record GridpointLatLonRow(String gridId, double lat, double lon) {
   }
 
+  /**
+   * Loads full gridpoint details for a single grid ID.
+   */
   public GridpointDetail getGridpointById(String gridId) throws Exception {
     String sql = "SELECT grid_id, office, grid_x, grid_y, forecast_grid_data_url, forecast_hourly_url, " +
         "ST_Y(geom) AS lat, ST_X(geom) AS lon " +
@@ -123,6 +153,9 @@ public class GridpointRepo {
     return null;
   }
 
+  /**
+   * Full gridpoint details used by APIs and UI.
+   */
   public record GridpointDetail(
       String gridId,
       String office,

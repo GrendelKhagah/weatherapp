@@ -7,14 +7,23 @@ import java.sql.PreparedStatement;
 import java.sql.Timestamp;
 import java.time.Instant;
 
+/**
+ * Database access for NWS alert records.
+ */
 public class AlertRepo {
     private final HikariDataSource ds;
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AlertRepo.class);
 
+    /**
+     * Creates a repo backed by the provided datasource.
+     */
     public AlertRepo(HikariDataSource ds) {
         this.ds = ds;
     }
 
+    /**
+     * Inserts or updates an alert row, including optional geometry.
+     */
     public void upsertAlert(String alertId,
             String event,
             String severity,
@@ -81,6 +90,9 @@ public class AlertRepo {
         log.debug("upsertAlert: alertId={} event={} severity={}", alertId, event, severity);
     }
 
+    /**
+     * Writes a nullable timestamp to a prepared statement.
+     */
     private void setInstant(PreparedStatement ps, int idx, Instant t) throws Exception {
         if (t == null)
             ps.setNull(idx, java.sql.Types.TIMESTAMP);

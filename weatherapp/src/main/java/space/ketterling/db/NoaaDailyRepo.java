@@ -10,14 +10,23 @@ import com.zaxxer.hikari.HikariDataSource;
 import java.sql.*;
 import java.time.LocalDate;
 
+/**
+ * Database access for NOAA daily summary rows.
+ */
 public class NoaaDailyRepo {
     private final HikariDataSource ds;
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(NoaaDailyRepo.class);
 
+    /**
+     * Creates a repo backed by the provided datasource.
+     */
     public NoaaDailyRepo(HikariDataSource ds) {
         this.ds = ds;
     }
 
+    /**
+     * Returns the latest date stored for a station, or null if none.
+     */
     public LocalDate maxDateForStation(String stationId) throws Exception {
         String sql = "SELECT MAX(date) FROM noaa_daily_summary WHERE station_id=?";
         try (Connection c = ds.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
@@ -31,6 +40,9 @@ public class NoaaDailyRepo {
         }
     }
 
+    /**
+     * Inserts or updates one daily summary row for a station.
+     */
     public void upsertDaily(String stationId, LocalDate date, Double tmaxC, Double tminC, Double prcpMm, String rawJson)
             throws Exception {
         String sql = "INSERT INTO noaa_daily_summary (station_id, date, tmax_c, tmin_c, prcp_mm, raw_json) " +
@@ -53,6 +65,9 @@ public class NoaaDailyRepo {
         log.debug("upsertDaily: {} {}", stationId, date);
     }
 
+    /**
+     * Writes a nullable double to a prepared statement.
+     */
     private void setDouble(PreparedStatement ps, int idx, Double v) throws Exception {
         if (v == null)
             ps.setNull(idx, java.sql.Types.REAL);

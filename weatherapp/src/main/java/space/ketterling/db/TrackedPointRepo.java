@@ -8,14 +8,23 @@ import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Database access for user-tracked points (lat/lon + name).
+ */
 public class TrackedPointRepo {
     private final HikariDataSource ds;
 
+    /**
+     * Creates a repo and ensures the table exists.
+     */
     public TrackedPointRepo(HikariDataSource ds) {
         this.ds = ds;
         ensureTable();
     }
 
+    /**
+     * Creates the tracked_point table if it does not exist.
+     */
     private void ensureTable() {
         String sql = """
                 CREATE TABLE IF NOT EXISTS tracked_point (
@@ -33,6 +42,9 @@ public class TrackedPointRepo {
         }
     }
 
+    /**
+     * Lists all tracked points in the database.
+     */
     public List<TrackedPoint> list() throws Exception {
         String sql = "SELECT id, name, lat, lon, created_at FROM tracked_point ORDER BY id";
         List<TrackedPoint> out = new ArrayList<>();
@@ -51,6 +63,9 @@ public class TrackedPointRepo {
         return out;
     }
 
+    /**
+     * Inserts or updates a tracked point and returns its ID.
+     */
     public long upsert(String name, double lat, double lon) throws Exception {
         String sql = """
                 INSERT INTO tracked_point (name, lat, lon)
@@ -70,6 +85,9 @@ public class TrackedPointRepo {
         return -1;
     }
 
+    /**
+     * Deletes a tracked point by ID.
+     */
     public int deleteById(long id) throws Exception {
         String sql = "DELETE FROM tracked_point WHERE id = ?";
         try (Connection c = ds.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
@@ -78,6 +96,9 @@ public class TrackedPointRepo {
         }
     }
 
+    /**
+     * Deletes a tracked point by coordinates.
+     */
     public int deleteByLatLon(double lat, double lon) throws Exception {
         String sql = "DELETE FROM tracked_point WHERE lat = ? AND lon = ?";
         try (Connection c = ds.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
@@ -87,6 +108,9 @@ public class TrackedPointRepo {
         }
     }
 
+    /**
+     * Small record used for returning tracked point rows.
+     */
     public record TrackedPoint(long id, String name, double lat, double lon, String createdAt) {
     }
 }

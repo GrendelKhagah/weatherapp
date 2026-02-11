@@ -1,6 +1,8 @@
+// Frontend API wrapper for WeatherApp.
 (function () {
   const BASE = (window.CONFIG && window.CONFIG.API_BASE) ? window.CONFIG.API_BASE.replace(/\/+$/, "") : "";
 
+  /** Build a relative URL with query parameters. */
   function withParams(url, params) {
     const u = new URL(url, window.location.origin);
     Object.entries(params || {}).forEach(([k, v]) => {
@@ -10,6 +12,7 @@
     return u.toString().replace(window.location.origin, "").replace(/^\/+/, "");
   }
 
+  /** Fetch JSON from the backend with timeout and error handling. */
   async function fetchJson(path, { params, timeoutMs, method, body } = {}) {
     const t = timeoutMs ?? 15000;
     const controller = new AbortController();
@@ -41,6 +44,7 @@
     }
   }
 
+  /** Try primary path, then fall back for older ML service endpoints. */
   async function fetchJsonWithFallback(primaryPath, fallbackPath, options) {
     try {
       return await fetchJson(primaryPath, options);
@@ -53,6 +57,7 @@
     }
   }
 
+  /** Create a bbox string from a MapLibre map view. */
   function bboxFromMap(map) {
     const b = map.getBounds();
     // minLon,minLat,maxLon,maxLat
@@ -63,7 +68,7 @@
     base: BASE,
 
     health: () => fetchJson("/health"),
-    metricsSummary: () => fetchJson("/api/metrics/summary"),
+    metricsSummary: () => fetchJson("/api/metrics/summary", { timeoutMs: 45000 }),
     externalMetrics: () => fetchJson("/api/metrics/external"),
 
     gridpointsGeojson: (bbox) => fetchJson("/api/gridpoints", { params: bbox ? { bbox } : {} }),
@@ -72,14 +77,20 @@
     hourlyForecast: (gridId, limit, hours) =>
       fetchJson("/api/forecast/hourly", { params: { gridId, limit: limit ?? window.CONFIG.FORECAST_LIMIT, hours } }),
 
-    dailyForecast: (gridId, days) =>
-      fetchJson("/api/forecast/daily", { params: { gridId, days } }),
+    dailyForecast: async (gridId, days) => {
+      try {
+        return await fetchJson("/api/forecast/daily", { params: { gridId, days } });
+      } catch (err) {
+        if (err && err.status === 404) return [];
+        throw err;
+      }
+    },
 
     pointLive: (lat, lon) =>
       fetchJson("/api/forecast/hourly/point", { params: { lat, lon } }),
 
-    pointHourlyList: (lat, lon, limit) =>
-      fetchJson("/api/forecast/hourly/point", { params: { lat, lon, limit, mode: "list" } }),
+    pointHourlyList: (lat, lon, limit, refresh) =>
+      fetchJson("/api/forecast/hourly/point", { params: { lat, lon, limit, mode: "list", refresh: refresh ? 1 : undefined } }),
 
     historyGridpoint: (gridId, days) =>
       fetchJson("/api/history/gridpoint", { params: { gridId, days } }),
@@ -96,7 +107,7 @@
     mlWeatherForecast: (sourceType, sourceId, lat, lon, days) =>
       fetchJsonWithFallback("/api/ml/weather/forecast", "/ml/weather/forecast", { params: { sourceType, sourceId, lat, lon, days } }),
 
-    layerTemperature: (hourOffset) => fetchJson("/layers/temperature", { params: { hourOffset } }),
+    layerTemperature: (hourOffset, bbox) => fetchJson("/layers/temperature", { params: { hourOffset, bbox } }),
     layerPrecip: (range) => fetchJson("/layers/precipitation", { params: { range } }),
 
     pointSummary: (lat, lon, days, limit) => fetchJson("/api/point/summary", { params: { lat, lon, days, limit } }),

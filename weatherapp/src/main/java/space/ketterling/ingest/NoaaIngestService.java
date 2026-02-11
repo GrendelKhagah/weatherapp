@@ -14,6 +14,16 @@ import java.util.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+/**
+ * Loads NOAA station metadata and daily history into the database.
+ *
+ * <p>
+ * This service handles two main jobs:
+ * <ul>
+ * <li>Find nearby NOAA stations for each gridpoint and store the mapping.</li>
+ * <li>Pull daily temperature/precipitation history for mapped stations.</li>
+ * </ul>
+ */
 public class NoaaIngestService {
     private static final Logger log = LoggerFactory.getLogger(NoaaIngestService.class);
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE;
@@ -31,6 +41,9 @@ public class NoaaIngestService {
     private final GridpointRepo gridRepo;
     private final CachedGridAggRepo cacheRepo;
 
+    /**
+     * Creates a NOAA ingest service with required clients and repositories.
+     */
     public NoaaIngestService(
             AppConfig cfg,
             ObjectMapper om,
@@ -51,7 +64,13 @@ public class NoaaIngestService {
         this.cacheRepo = new CachedGridAggRepo(Database.createIngestDataSource(cfg));
     }
 
-    // expose cache population for scheduler
+    /**
+     * Updates cached grid aggregates for a given date window.
+     *
+     * <p>
+     * This is called by the scheduler after ingesting new daily data.
+     * </p>
+     */
     public void populateCache(java.time.LocalDate asOf, int windowDays) throws Exception {
         cacheRepo.upsertAggregates(asOf, windowDays);
     }
@@ -59,6 +78,13 @@ public class NoaaIngestService {
     // -------------------------------------------------------
     // JOB A: Discover stations near each gridpoint + map them
     // -------------------------------------------------------
+    /**
+     * Finds NOAA stations near each gridpoint and saves the closest ones.
+     *
+     * <p>
+     * If a local GHCN station file exists, it uses that file to avoid API calls.
+     * </p>
+     */
     public void refreshStationsAndMapping() throws Exception {
         log.info("Starting job: refreshStationsAndMapping");
         UUID runId = logRepo.startRun("noaa_station_discovery");
@@ -226,6 +252,13 @@ public class NoaaIngestService {
     // -------------------------------------------------------
     // JOB B: Pull GHCND daily history for primary stations
     // -------------------------------------------------------
+    /**
+     * Pulls daily GHCND history for each primary station and writes it to the DB.
+     *
+     * <p>
+     * Skips stations that have local CSV history to reduce NOAA API usage.
+     * </p>
+     */
     public void ingestDailyHistory() throws Exception {
         log.info("Starting job: ingestDailyHistory");
         UUID runId = logRepo.startRun("noaa_daily_history");
@@ -284,6 +317,9 @@ public class NoaaIngestService {
         }
     }
 
+    /**
+     * Ingests daily records for a single station in date-range chunks.
+     */
     private void processStation(UUID runId, String stationId, LocalDate end) throws Exception {
         LocalDate maxExisting = dailyRepo.maxDateForStation(stationId);
         LocalDate start = (maxExisting == null) ? cfg.noaaBackfillStart() : maxExisting.plusDays(1);
@@ -313,6 +349,9 @@ public class NoaaIngestService {
         }
     }
 
+    /**
+     * Checks common resource and filesystem locations for a station CSV file.
+     */
     private boolean hasLocalCsv(String stationId) {
         String raw = stationId.startsWith("GHCND:") ? stationId.substring("GHCND:".length()) : stationId;
         String resourcePath = "stationHistoricData/" + raw + ".csv";
@@ -347,6 +386,9 @@ public class NoaaIngestService {
         return false;
     }
 
+    /**
+     * Downloads a small date range from NOAA and writes aggregated daily rows.
+     */
     private void ingestStationChunk(UUID runId, String stationId, LocalDate start, LocalDate end) throws Exception {
         String startStr = start.format(ISO);
         String endStr = end.format(ISO);
@@ -426,12 +468,18 @@ public class NoaaIngestService {
         }
     }
 
+    /**
+     * Safely converts a JSON number node to a {@link Double}.
+     */
     private static Double getDoubleOrNull(JsonNode n) {
         if (n == null || n.isNull() || n.isMissingNode())
             return null;
         return n.asDouble();
     }
 
+    /**
+     * Computes straight-line distance on Earth between two lat/lon points.
+     */
     private static double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
         double R = 6371000.0;
         double dLat = Math.toRadians(lat2 - lat1);
@@ -443,6 +491,9 @@ public class NoaaIngestService {
         return R * c;
     }
 
+    /**
+     * Holds a candidate station and its distance from a gridpoint.
+     */
     private static class StationPick {
         final String stationId;
         final Double distanceM;
@@ -465,9 +516,15 @@ public class NoaaIngestService {
         }
     }
 
+    /**
+     * Lightweight station record parsed from a local file.
+     */
     private static record StationRecord(String id, double lat, double lon, Double elev, String name) {
     }
 
+    /**
+     * Aggregates a single day's weather values while reading NOAA rows.
+     */
     private static class DayAgg {
         Double tmaxC;
         Double tminC;

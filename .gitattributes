@@ -1,0 +1,5 @@
+# Default: keep text normalized
+* text=auto
+
+# Shell scripts must stay LF (Linux-friendly)
+*.sh text eol=lf

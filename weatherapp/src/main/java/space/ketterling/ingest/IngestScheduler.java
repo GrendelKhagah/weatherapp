@@ -8,6 +8,9 @@ import space.ketterling.config.AppConfig;
 import java.util.concurrent.*;
 import org.slf4j.MDC;
 
+/**
+ * Runs background jobs on a schedule (gridpoints, hourly, alerts, NOAA).
+ */
 public final class IngestScheduler {
     private static final Logger log = LoggerFactory.getLogger(IngestScheduler.class);
 
@@ -37,6 +40,9 @@ public final class IngestScheduler {
     private ScheduledFuture<?> noaaDailyTask;
     private ScheduledFuture<?> noaaCacheTask;
 
+    /**
+     * Builds the scheduler with the required services.
+     */
     public IngestScheduler(AppConfig cfg, NwsIngestService ingest,
             space.ketterling.ingest.NoaaIngestService noaaIngest) {
         this.cfg = cfg;
@@ -44,6 +50,9 @@ public final class IngestScheduler {
         this.noaaIngest = noaaIngest;
     }
 
+    /**
+     * Starts all scheduled jobs.
+     */
     public void start() {
         gridpointTask = gridExec.scheduleWithFixedDelay(safe("gridpoints", ingest::refreshGridpoints),
                 0, cfg.gridpointRefresh().toSeconds(), TimeUnit.SECONDS);
@@ -77,6 +86,9 @@ public final class IngestScheduler {
         log.info("Ingest scheduler started.");
     }
 
+    /**
+     * Stops all jobs and shuts down their threads.
+     */
     public void stop() {
         if (gridpointTask != null)
             gridpointTask.cancel(true);
@@ -102,6 +114,9 @@ public final class IngestScheduler {
         }
     }
 
+    /**
+     * Stops a single executor and logs if it hangs.
+     */
     private void shutdown(ScheduledExecutorService es, String name) {
         es.shutdownNow();
         try {
@@ -112,6 +127,9 @@ public final class IngestScheduler {
         }
     }
 
+    /**
+     * Wraps a job so errors are logged and don't crash the scheduler.
+     */
     private Runnable safe(String name, ThrowingRunnable r) {
         return () -> {
             MDC.put("job", name);
@@ -125,6 +143,9 @@ public final class IngestScheduler {
         };
     }
 
+    /**
+     * Small helper so scheduled jobs can throw checked exceptions.
+     */
     @FunctionalInterface
     interface ThrowingRunnable {
         void run() throws Exception;

@@ -44,6 +44,13 @@ public class StationHistoricCsvIngest {
     private static final Logger log = LoggerFactory.getLogger(StationHistoricCsvIngest.class);
     private static volatile boolean loggedReadOnlyBase = false;
 
+    /**
+     * CLI entry point for ingesting local station history files.
+     *
+     * <p>
+     * Optionally pass a directory path; otherwise it uses config and defaults.
+     * </p>
+     */
     public static void main(String[] args) throws Exception {
         String dirArg = (args.length > 0) ? args[0] : null;
 
@@ -64,6 +71,9 @@ public class StationHistoricCsvIngest {
         ds.close();
     }
 
+    /**
+     * Finds the directory that holds station history CSV files.
+     */
     private static Path resolveStationHistoricDir(String dirArg, AppConfig cfg) {
         // 1) explicit CLI arg
         if (dirArg != null) {
@@ -96,10 +106,13 @@ public class StationHistoricCsvIngest {
     }
 
     /**
-     * Scan the directory for CSV files and ingest only files that contain newer
-     * dates than what is present in the DB for the station.
+     * Scans a directory for station CSVs and ingests only new rows.
      *
-     * Returns number of files processed (had at least 1 inserted/updated row).
+     * <p>
+     * Uses a small state file to skip files that have not changed.
+     * </p>
+     *
+     * @return number of files that wrote at least one row
      */
     public static int ingestIfNeeded(Path dir, HikariDataSource ds, AppConfig cfg) throws Exception {
         NoaaDailyRepo dailyRepo = new NoaaDailyRepo(ds);
@@ -314,9 +327,12 @@ public class StationHistoricCsvIngest {
     }
 
     /**
-     * Scan for daily-summaries-latest.tar.gz and ingest all CSV entries.
-     * Only imports rows newer than existing station max dates.
-     * After ingest, moves the archive into oldDailys/.
+     * Scans for daily-summaries-latest.tar.gz and ingests all CSV entries.
+     *
+     * <p>
+     * Only imports rows newer than the DB's max date per station. After ingest,
+     * the archive is moved into an oldDailys/ folder.
+     * </p>
      *
      * @return total rows written
      */
@@ -474,6 +490,9 @@ public class StationHistoricCsvIngest {
         return rowsWritten;
     }
 
+    /**
+     * Searches common locations for the daily summaries archive.
+     */
     private static Path resolveDailySummariesTarGz(Path stationDir, AppConfig cfg) {
         if (stationDir != null) {
             Path p1 = stationDir.resolve("daily-summaries-latest.tar.gz");
@@ -524,6 +543,9 @@ public class StationHistoricCsvIngest {
         return null;
     }
 
+    /**
+     * Moves the processed tar.gz into an oldDailys/ folder for safekeeping.
+     */
     private static void moveTarToOld(Path tarPath) {
         try {
             Path parent = tarPath.getParent();
@@ -542,6 +564,9 @@ public class StationHistoricCsvIngest {
         }
     }
 
+    /**
+     * Moves a CSV file into a date-named folder based on the max date found.
+     */
     private static void moveFileToDateDir(Path baseDir, Path file, LocalDate fileMax) {
         try {
             if (!canWrite(baseDir)) {
@@ -558,6 +583,9 @@ public class StationHistoricCsvIngest {
         }
     }
 
+    /**
+     * Returns true if the directory can be written to.
+     */
     private static boolean canWrite(Path dir) {
         try {
             return Files.isWritable(dir);
@@ -566,6 +594,9 @@ public class StationHistoricCsvIngest {
         }
     }
 
+    /**
+     * Logs a one-time warning when the base directory is read-only.
+     */
     private static void warnReadOnlyOnce(Path dir) {
         if (!loggedReadOnlyBase) {
             loggedReadOnlyBase = true;
@@ -573,6 +604,9 @@ public class StationHistoricCsvIngest {
         }
     }
 
+    /**
+     * Loads a simple key/value state file used for ingest bookkeeping.
+     */
     private static Properties loadState(Path stateFile) {
         Properties state = new Properties();
         if (Files.exists(stateFile)) {
@@ -584,6 +618,9 @@ public class StationHistoricCsvIngest {
         return state;
     }
 
+    /**
+     * Saves the ingest state file to disk.
+     */
     private static void saveState(Path stateFile, Properties state, String comment) {
         try (FileOutputStream fos = new FileOutputStream(stateFile.toFile())) {
             state.store(fos, comment);
@@ -591,6 +628,9 @@ public class StationHistoricCsvIngest {
         }
     }
 
+    /**
+     * Parses a string to long or returns 0 if missing/invalid.
+     */
     private static long parseLongOrZero(String s) {
         if (s == null || s.isBlank())
             return 0L;
@@ -601,6 +641,9 @@ public class StationHistoricCsvIngest {
         }
     }
 
+    /**
+     * Gets a CSV column by header name (uppercase keys).
+     */
     private static String getCol(java.util.List<String> cols, Map<String, Integer> idx, String keyUpper) {
         Integer i = idx.get(keyUpper);
         if (i == null)
@@ -610,6 +653,9 @@ public class StationHistoricCsvIngest {
         return cols.get(i);
     }
 
+    /**
+     * Holds a single day's aggregated values while parsing long-format files.
+     */
     private static class DayAgg {
         Double tmaxC;
         Double tminC;
@@ -617,6 +663,9 @@ public class StationHistoricCsvIngest {
         final java.util.List<String> raw = new java.util.ArrayList<>();
     }
 
+    /**
+     * Splits a CSV line while handling quoted commas.
+     */
     private static java.util.List<String> parseCsvLine(String line) {
         java.util.ArrayList<String> out = new java.util.ArrayList<>();
         StringBuilder cur = new StringBuilder();
@@ -644,6 +693,9 @@ public class StationHistoricCsvIngest {
         return out;
     }
 
+    /**
+     * Parses a double, returning null if the value is missing or invalid.
+     */
     private static Double parseMaybeNumber(String s) {
         if (s == null)
             return null;

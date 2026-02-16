@@ -2,6 +2,8 @@
 
 WeatherApp is a full‑stack weather platform that ingests NOAA/NWS data, stores it in PostgreSQL, serves a Java REST API, and renders a browser UI with interactive maps and forecasts. A Python ML service generates predictions and 10‑day station forecasts that are displayed in the UI.
 
+<img width="1750" height="1181" alt="Screenshot 2026-02-16 LA Storm Alerts" src="https://github.com/user-attachments/assets/281fbad2-6271-4d6b-a96b-3d28d932003b" />
+
 ## Stacks at a Glance
 
 - Front‑end: static site in [public_html/](public_html) (HTML/CSS/JS + canvas charts)
